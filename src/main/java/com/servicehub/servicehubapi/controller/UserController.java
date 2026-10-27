@@ -1,158 +1,215 @@
-package com.servicehub.servicehubapi.controller; // Define o pacote onde o controller está localizado.
+package com.servicehub.servicehubapi.controller; // Define o pacote do controller.
 
-import com.servicehub.servicehubapi.dto.UserResponseDTO; // Importa o DTO de resposta do usuário.
-import com.servicehub.servicehubapi.model.User; // Importa o modelo User.
-import com.servicehub.servicehubapi.service.UserService; // Importa o serviço de usuários.
+import com.servicehub.servicehubapi.dto.UserRequestDTO; // DTO de entrada.
+import com.servicehub.servicehubapi.dto.UserResponseDTO; // DTO de resposta.
+import com.servicehub.servicehubapi.model.User; // Modelo do usuário.
+import com.servicehub.servicehubapi.service.UserService; // Serviço de usuários.
 
-import io.swagger.v3.oas.annotations.Operation; // Permite documentar os endpoints no Swagger.
-import io.swagger.v3.oas.annotations.responses.ApiResponse; // Permite documentar os códigos de resposta.
-import io.swagger.v3.oas.annotations.tags.Tag; // Permite agrupar os endpoints no Swagger.
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
-import org.springframework.http.HttpStatus; // Importa os códigos HTTP.
-import org.springframework.http.ResponseEntity; // Permite controlar o status e o corpo da resposta.
-import org.springframework.web.bind.annotation.*; // Importa as anotações dos endpoints.
+import jakarta.validation.Valid; // Valida os dados recebidos.
 
-import java.util.List; // Permite trabalhar com listas.
-import java.util.stream.Collectors; // Permite transformar listas.
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+// Define o grupo de endpoints no Swagger.
 @Tag(
-        name = "Usuários", // Define o nome do grupo no Swagger.
-        description = "Operações relacionadas aos usuários" // Descreve o grupo de endpoints.
+        name = "Usuários",
+        description = "Operações relacionadas aos usuários"
 )
-@RestController // Indica que a classe é um controller que retorna dados, geralmente em JSON.
-@RequestMapping("/api/users") // Define o endereço inicial dos endpoints.
-public class UserController { // Declara a classe UserController.
+@RestController
+@RequestMapping("/api/users")
+public class UserController {
 
-    private final UserService userService; // Guarda o serviço responsável pelos usuários.
+    // Guarda a referência ao serviço de usuários.
+    private final UserService userService;
 
-    public UserController(UserService userService) { // Construtor que recebe o UserService.
-        this.userService = userService; // Guarda o serviço recebido.
+    // Recebe o serviço pelo construtor.
+    public UserController(UserService userService) {
+        this.userService = userService;
     }
 
-    // Criar usuário
+    // Cadastra um novo usuário.
     @Operation(
-            summary = "Criar usuário", // Resumo do endpoint no Swagger.
-            description = "Cadastra um novo usuário no sistema" // Descrição do endpoint.
+            summary = "Criar usuário",
+            description = "Cadastra um novo usuário no sistema"
     )
     @ApiResponse(
-            responseCode = "201", // Informa que o cadastro retorna 201 Created.
-            description = "Usuário cadastrado com sucesso" // Descreve o resultado.
+            responseCode = "201",
+            description = "Usuário cadastrado com sucesso"
     )
-    @PostMapping // Define que o método responde a requisições POST.
+    @PostMapping
+    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<UserResponseDTO> create(
-            @RequestBody User user // Recebe os dados do usuário no corpo da requisição.
+            @Valid @RequestBody UserRequestDTO userRequest
     ) {
-        User savedUser = userService.save(user); // Salva o usuário no banco de dados.
+        // Cria a entidade que será armazenada no banco.
+        User user = new User();
 
-        UserResponseDTO response = convertToDTO(savedUser); // Converte User para DTO.
+        // Transfere os dados recebidos do DTO para a entidade.
+        user.setFullName(userRequest.getFullName());
+        user.setEmail(userRequest.getEmail());
 
+        // O serviço criptografará a senha antes de armazená-la.
+        user.setPasswordHash(userRequest.getPassword());
+
+        user.setPhone(userRequest.getPhone());
+        user.setBio(userRequest.getBio());
+        user.setAvatarUrl(userRequest.getAvatarUrl());
+
+        // Define a conta como ativa no cadastro.
+        user.setActive(true);
+
+        // Salva o usuário no banco de dados.
+        User savedUser = userService.save(user);
+
+        // Converte o usuário salvo em DTO.
+        UserResponseDTO response = convertToDTO(savedUser);
+
+        // Retorna HTTP 201 (Created).
         return ResponseEntity
-                .status(HttpStatus.CREATED) // Define o status HTTP como 201 Created.
-                .body(response); // Retorna o DTO no corpo da resposta.
+                .status(HttpStatus.CREATED)
+                .body(response);
     }
 
-    // Listar todos os usuários
+    // Lista todos os usuários cadastrados.
     @Operation(
-            summary = "Listar usuários", // Resumo do endpoint no Swagger.
-            description = "Retorna todos os usuários cadastrados" // Descrição do endpoint.
+            summary = "Listar usuários",
+            description = "Retorna todos os usuários cadastrados"
     )
     @ApiResponse(
-            responseCode = "200", // Informa que a consulta retorna 200 OK.
-            description = "Usuários encontrados com sucesso" // Descreve o resultado.
+            responseCode = "200",
+            description = "Usuários encontrados com sucesso"
     )
-    @GetMapping // Define que o método responde a requisições GET.
-    public List<UserResponseDTO> findAll() { // Retorna uma lista de DTOs.
-        return userService.findAll() // Busca todos os usuários no serviço.
-                .stream() // Transforma a lista em um fluxo.
-                .map(this::convertToDTO) // Converte cada User em DTO.
-                .collect(Collectors.toList()); // Junta os DTOs em uma lista.
+    @GetMapping
+    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
+    public List<UserResponseDTO> findAll() {
+
+        // Busca os usuários e converte cada um em DTO.
+        return userService.findAll()
+                .stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
     }
 
-    // Buscar usuário por ID
+    // Busca um usuário específico pelo ID.
     @Operation(
-            summary = "Buscar usuário por ID", // Resumo do endpoint no Swagger.
-            description = "Retorna um usuário específico pelo seu ID" // Descrição do endpoint.
+            summary = "Buscar usuário por ID",
+            description = "Retorna um usuário específico pelo seu ID"
     )
     @ApiResponse(
-            responseCode = "200", // Informa que usuário encontrado retorna 200 OK.
-            description = "Usuário encontrado com sucesso" // Descreve o resultado.
+            responseCode = "200",
+            description = "Usuário encontrado com sucesso"
     )
-
-    @GetMapping("/{id}") // Define o endereço para buscar um usuário pelo ID.
+    @ApiResponse(
+            responseCode = "404",
+            description = "Usuário não encontrado"
+    )
+    @GetMapping("/{id}")
+    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<UserResponseDTO> findById(
-            @PathVariable Long id // Recebe o ID informado na URL.
+            @PathVariable Long id
     ) {
-        return userService.findById(id) // Busca o usuário no serviço.
-                .map(this::convertToDTO) // Converte o usuário encontrado para DTO.
-                .map(ResponseEntity::ok) // Retorna 200 OK se encontrar o usuário.
-                .orElseGet(() -> ResponseEntity.notFound().build()); // Retorna 404 se não encontrar.
+        // Busca o usuário pelo ID e converte o resultado em DTO.
+        return userService.findById(id)
+                .map(this::convertToDTO)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    // Atualizar usuário
+    // Atualiza os dados de um usuário existente.
     @Operation(
-            summary = "Atualizar usuário", // Resumo do endpoint no Swagger.
-            description = "Atualiza os dados de um usuário existente" // Descrição do endpoint.
+            summary = "Atualizar usuário",
+            description = "Atualiza os dados de um usuário existente"
     )
     @ApiResponse(
-            responseCode = "200", // Informa que a atualização retorna 200 OK.
-            description = "Usuário atualizado com sucesso" // Descreve o resultado.
+            responseCode = "200",
+            description = "Usuário atualizado com sucesso"
     )
-    @PutMapping("/{id}") // Define que o método responde a requisições PUT.
-    public UserResponseDTO update(
-            @PathVariable Long id, // Recebe o ID do usuário.
-            @RequestBody User user // Recebe os novos dados do usuário.
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<UserResponseDTO> update(
+            @PathVariable Long id,
+            @Valid @RequestBody UserRequestDTO userRequest
     ) {
-        User updatedUser = userService.update(id, user); // Atualiza o usuário no banco.
+        // Cria uma entidade com os novos dados recebidos.
+        User user = new User();
 
-        return convertToDTO(updatedUser); // Converte o usuário atualizado para DTO.
-    }
+        user.setFullName(userRequest.getFullName());
+        user.setEmail(userRequest.getEmail());
 
-    // Excluir usuário
-    @Operation(
-            summary = "Excluir usuário", // Resumo do endpoint no Swagger.
-            description = "Remove um usuário pelo seu ID" // Descrição do endpoint.
-    )
-    @ApiResponse(
-            responseCode = "204", // Informa que a exclusão retorna 204.
-            description = "Usuário excluído com sucesso" // Descreve o sucesso.
-    )
-    @ApiResponse(
-            responseCode = "404", // Informa que pode retornar 404.
-            description = "Usuário não encontrado" // Descreve o erro.
-    )
-    @DeleteMapping("/{id}") // Define que o método responde a requisições DELETE.
-    public ResponseEntity<Void> delete(
-            @PathVariable Long id // Recebe o ID informado na URL.
-    ) {
+        // O serviço criptografará a nova senha.
+        user.setPasswordHash(userRequest.getPassword());
 
-        // Verifica se o usuário não existe no banco de dados.
+        user.setPhone(userRequest.getPhone());
+        user.setBio(userRequest.getBio());
+        user.setAvatarUrl(userRequest.getAvatarUrl());
+
+        // Verifica se o usuário existe.
         if (userService.findById(id).isEmpty()) {
-
-            // Retorna 404 caso o usuário não seja encontrado.
             return ResponseEntity.notFound().build();
         }
 
-        // Exclui o usuário caso ele exista.
+        // Atualiza o usuário existente.
+        User updatedUser = userService.update(id, user);
+
+        // Retorna os dados atualizados sem expor a senha.
+        return ResponseEntity.ok(convertToDTO(updatedUser));
+    }
+
+    // Exclui um usuário pelo ID.
+    @Operation(
+            summary = "Excluir usuário",
+            description = "Remove um usuário pelo seu ID"
+    )
+    @ApiResponse(
+            responseCode = "204",
+            description = "Usuário excluído com sucesso"
+    )
+    @ApiResponse(
+            responseCode = "404",
+            description = "Usuário não encontrado"
+    )
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> delete(
+            @PathVariable Long id
+    ) {
+        // Verifica se o usuário existe.
+        if (userService.findById(id).isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        // Solicita a exclusão ao serviço.
         userService.delete(id);
 
-        // Retorna 204 indicando que a exclusão foi realizada.
+        // Retorna HTTP 204, sem conteúdo na resposta.
         return ResponseEntity.noContent().build();
     }
 
-    // Converte User para UserResponseDTO
-    private UserResponseDTO convertToDTO(
-            User user // Recebe o usuário completo.
-    ) {
-        return new UserResponseDTO( // Cria um DTO sem expor a senha.
-                user.getId(), // Copia o ID.
-                user.getFullName(), // Copia o nome completo.
-                user.getEmail(), // Copia o e-mail.
-                user.getPhone(), // Copia o telefone.
-                user.getBio(), // Copia a biografia.
-                user.getAvatarUrl(), // Copia a URL do avatar.
-                user.getActive(), // Copia o status ativo.
-                user.getCreatedAt(), // Copia a data de criação.
-                user.getUpdatedAt() // Copia a data de atualização.
+    // Converte a entidade User em UserResponseDTO.
+    private UserResponseDTO convertToDTO(User user) {
+
+        // Seleciona apenas os dados que podem ser enviados na resposta.
+        return new UserResponseDTO(
+                user.getId(),
+                user.getFullName(),
+                user.getEmail(),
+                user.getPhone(),
+                user.getBio(),
+                user.getAvatarUrl(),
+                user.getActive(),
+                user.getCreatedAt(),
+                user.getUpdatedAt()
         );
     }
 }

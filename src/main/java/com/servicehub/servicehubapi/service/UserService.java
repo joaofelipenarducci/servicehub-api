@@ -1,104 +1,125 @@
 // Define o pacote onde esta classe está localizada.
 package com.servicehub.servicehubapi.service;
 
-// Importa a classe User, que representa o usuário do sistema.
+// Importa a classe User, que representa o usuário.
 import com.servicehub.servicehubapi.model.User;
 
-// Importa o UserRepository, responsável pelo acesso ao banco de dados.
+// Importa o repositório responsável pelo acesso ao banco.
 import com.servicehub.servicehubapi.repository.UserRepository;
 
-// Importa a anotação que identifica esta classe como um serviço do Spring.
+// Importa a classe responsável pela sanitização de texto.
+import com.servicehub.servicehubapi.security.TextSanitizer;
+
+// Importa a anotação que identifica um serviço do Spring.
 import org.springframework.stereotype.Service;
 
-// Importa a classe List, usada para trabalhar com listas de usuários.
+// Importa a interface para criptografar senhas.
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+// Importa a classe List para trabalhar com listas.
 import java.util.List;
 
-// Importa a classe Optional, usada quando um usuário pode ou não ser encontrado.
+// Importa Optional para representar um usuário que pode não existir.
 import java.util.Optional;
 
-// Informa ao Spring que esta classe possui regras de negócio da aplicação.
+// Indica ao Spring que esta classe contém regras de negócio.
 @Service
 public class UserService {
 
-    // Declara o repositório que será usado para acessar os usuários no banco.
+    // Declara o repositório de usuários.
     private final UserRepository userRepository;
 
-    // Construtor da classe UserService.
-    public UserService(UserRepository userRepository) {
+    // Declara o codificador de senhas BCrypt.
+    private final PasswordEncoder passwordEncoder;
 
-        // Recebe o repositório e guarda ele no atributo da classe.
+    // Construtor que recebe as dependências necessárias.
+    public UserService(
+            UserRepository userRepository,
+            PasswordEncoder passwordEncoder) {
+
+        // Guarda o repositório recebido.
         this.userRepository = userRepository;
+
+        // Guarda o codificador de senhas recebido.
+        this.passwordEncoder = passwordEncoder;
     }
 
-    // Método responsável por salvar um novo usuário no banco de dados.
+    // Salva um novo usuário com a senha criptografada.
     public User save(User user) {
 
-        // Envia o usuário recebido para o repositório salvar no banco.
+        // Sanitiza a biografia, que é um campo de texto livre.
+        user.setBio(TextSanitizer.sanitize(user.getBio()));
+
+        // Criptografa a senha antes de armazená-la.
+        user.setPasswordHash(
+                passwordEncoder.encode(user.getPasswordHash())
+        );
+
+        // Salva o usuário no banco de dados.
         return userRepository.save(user);
     }
 
-    // Método responsável por buscar todos os usuários cadastrados.
+    // Busca todos os usuários cadastrados.
     public List<User> findAll() {
 
-        // Busca todos os usuários no banco e retorna uma lista.
+        // Retorna a lista de usuários do banco.
         return userRepository.findAll();
     }
 
-    // Método responsável por buscar um usuário pelo seu ID.
+    // Busca um usuário pelo ID.
     public Optional<User> findById(Long id) {
 
-        // Procura no banco um usuário que possua o ID informado.
-        // O Optional permite retornar um usuário ou informar que ele não existe.
+        // Retorna o usuário encontrado ou Optional vazio.
         return userRepository.findById(id);
     }
 
-    // Método responsável por atualizar um usuário existente.
+    // Atualiza os dados de um usuário existente.
     public User update(Long id, User user) {
 
-        // Busca no banco o usuário que será atualizado.
+        // Busca o usuário existente pelo ID.
         User existingUser = userRepository.findById(id)
+                .orElseThrow(
+                        () -> new RuntimeException("Usuário não encontrado")
+                );
 
-                // Caso o usuário não seja encontrado, lança uma mensagem de erro.
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
-
-        // Atualiza o nome do usuário existente com o nome recebido na requisição.
+        // Atualiza o nome.
         existingUser.setFullName(user.getFullName());
 
-        // Atualiza o e-mail do usuário existente.
+        // Atualiza o e-mail.
         existingUser.setEmail(user.getEmail());
 
-        // Atualiza a senha do usuário existente.
-        existingUser.setPasswordHash(user.getPasswordHash());
+        // Criptografa a nova senha antes de atualizar.
+        existingUser.setPasswordHash(
+                passwordEncoder.encode(user.getPasswordHash())
+        );
 
-        // Atualiza o telefone do usuário existente.
+        // Atualiza o telefone.
         existingUser.setPhone(user.getPhone());
 
-        // Atualiza a biografia do usuário existente.
-        existingUser.setBio(user.getBio());
+        // Sanitiza a biografia antes de armazená-la.
+        existingUser.setBio(TextSanitizer.sanitize(user.getBio()));
 
-        // Atualiza o endereço da imagem do avatar do usuário existente.
+        // Atualiza a URL do avatar sem alterar seu conteúdo.
         existingUser.setAvatarUrl(user.getAvatarUrl());
 
-        // Atualiza o status do usuário, ativo ou inativo.
+        // Atualiza o status da conta.
         existingUser.setActive(user.getActive());
 
-        // Salva o usuário atualizado no banco de dados.
-        // O createdAt original é preservado porque usamos o usuário existente.
-        // O updatedAt será atualizado automaticamente pelo @UpdateTimestamp.
+        // Salva as alterações no banco.
         return userRepository.save(existingUser);
     }
 
-    // Método responsável por excluir um usuário pelo ID.
+    // Exclui um usuário pelo ID.
     public void delete(Long id) {
 
-        // Verifica se existe um usuário com o ID informado.
+        // Verifica se o usuário existe.
         if (!userRepository.existsById(id)) {
 
-            // Se o usuário não existir, lança uma exceção.
+            // Informa que o usuário não foi encontrado.
             throw new RuntimeException("Usuário não encontrado");
         }
 
-        // Se o usuário existir, realiza a exclusão no banco.
+        // Exclui o usuário do banco de dados.
         userRepository.deleteById(id);
     }
 }

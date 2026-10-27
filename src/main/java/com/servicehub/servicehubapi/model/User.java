@@ -1,79 +1,93 @@
-package com.servicehub.servicehubapi.model; // Define o pacote onde a classe User está localizada.
 
-import jakarta.persistence.Entity; // Permite transformar a classe em uma entidade do banco de dados.
-import jakarta.persistence.GeneratedValue; // Permite gerar valores automaticamente.
+package com.servicehub.servicehubapi.model; // Define o pacote da classe User.
+
+import jakarta.persistence.Entity; // Permite mapear a classe para uma tabela.
+import jakarta.persistence.GeneratedValue; // Permite gerar o ID automaticamente.
 import jakarta.persistence.GenerationType; // Define a estratégia de geração do ID.
-import jakarta.persistence.Id; // Identifica o campo que será a chave primária.
-import jakarta.persistence.Table; // Permite definir o nome da tabela no banco.
-import jakarta.persistence.Column; // Permite configurar as colunas da tabela.
+import jakarta.persistence.Id; // Identifica a chave primária.
+import jakarta.persistence.Table; // Permite definir o nome da tabela.
+import jakarta.persistence.Column; // Permite configurar as colunas do banco.
 
-import org.hibernate.annotations.CreationTimestamp; // Preenche automaticamente a data de criação.
-import org.hibernate.annotations.UpdateTimestamp; // Atualiza automaticamente a data de alteração.
+import jakarta.validation.constraints.Email; // Valida o formato do e-mail.
+import jakarta.validation.constraints.NotBlank; // Impede campos vazios ou com espaços.
+import jakarta.validation.constraints.Size; // Limita a quantidade de caracteres.
 
-import io.swagger.v3.oas.annotations.media.Schema; // Permite documentar os campos no Swagger.
+import org.hibernate.annotations.CreationTimestamp; // Preenche a data de criação.
+import org.hibernate.annotations.UpdateTimestamp; // Atualiza a data de alteração.
 
-import lombok.Getter; // Gera automaticamente os métodos getters.
-import lombok.Setter; // Gera automaticamente os métodos setters.
+import io.swagger.v3.oas.annotations.media.Schema; // Documenta os campos no Swagger.
 
-@Getter // Cria os métodos para consultar os valores dos atributos.
-@Setter // Cria os métodos para alterar os valores dos atributos.
-@Entity // Informa que esta classe representa uma tabela do banco de dados.
-@Table(name = "users") // Define que a classe será relacionada à tabela users.
-public class User { // Declara a classe que representa um usuário.
+import lombok.Getter; // Gera os métodos getters.
+import lombok.Setter; // Gera os métodos setters.
 
-    @Id // Define o campo id como chave primária da tabela.
-    @GeneratedValue(strategy = GenerationType.IDENTITY) // Faz o banco gerar o ID automaticamente.
-    @Schema(description = "Identificador único do usuário", example = "1") // Documenta o ID no Swagger.
-    private Long id; // Armazena o identificador único do usuário.
+import jakarta.persistence.Enumerated; // Define como o enum será armazenado no banco.
+import jakarta.persistence.EnumType; // Define o formato de armazenamento do enum.
 
-    @Column(name = "full_name", nullable = false, length = 100) // Define o nome, obrigatoriedade e tamanho da coluna.
-    @Schema(description = "Nome completo do usuário", example = "João Felipe") // Documenta o nome no Swagger.
-    private String fullName; // Armazena o nome completo do usuário.
+import java.time.LocalDateTime; // Representa data e hora.
 
-    @Column(nullable = false, unique = true, length = 255) // Torna o e-mail obrigatório, único e limita seu tamanho.
-    @Schema(description = "E-mail do usuário", example = "joao@email.com") // Documenta o e-mail no Swagger.
-    private String email; // Armazena o e-mail do usuário.
+// Gera automaticamente os getters e setters.
+@Getter
+@Setter
+@Entity // Indica que a classe representa uma entidade do banco.
+@Table(name = "users") // Define o nome da tabela.
+public class User {
 
-    @Column(name = "password_hash", nullable = false, length = 255) // Define a coluna da senha criptografada.
+    @Id // Define o campo como chave primária.
+    @GeneratedValue(strategy = GenerationType.IDENTITY) // O banco gera o ID.
+    @Schema(description = "Identificador único do usuário", example = "1")
+    private Long id; // Identificador do usuário.
+
+    @NotBlank(message = "O nome completo é obrigatório") // Exige um nome preenchido.
+    @Size(max = 100, message = "O nome deve ter no máximo 100 caracteres") // Limita o nome.
+    @Column(name = "full_name", nullable = false, length = 100)
+    @Schema(description = "Nome completo do usuário", example = "João Felipe")
+    private String fullName; // Nome completo.
+
+    @NotBlank(message = "O e-mail é obrigatório") // Exige um e-mail preenchido.
+    @Email(message = "O e-mail informado é inválido") // Valida o formato do e-mail.
+    @Size(max = 255, message = "O e-mail deve ter no máximo 255 caracteres") // Limita o e-mail.
+    @Column(nullable = false, unique = true, length = 255)
+    @Schema(description = "E-mail do usuário", example = "joao@email.com")
+    private String email; // E-mail do usuário.
+
+    @NotBlank(message = "A senha é obrigatória") // Exige uma senha preenchida.
+    @Size(min = 8, max = 255, message = "A senha deve ter entre 8 e 255 caracteres")
+    @Column(name = "password_hash", nullable = false, length = 255)
     @Schema(
-            description = "Senha do usuário armazenada de forma criptografada", // Explica o campo no Swagger.
-            example = "senhaCriptografada" // Mostra um exemplo de valor.
+            description = "Senha do usuário armazenada de forma criptografada",
+            example = "senhaCriptografada"
     )
-    private String passwordHash; // Armazena a senha protegida do usuário.
+    private String passwordHash; // Deve armazenar o hash da senha, não a senha pura.
 
-    @Column(length = 20) // Define que o telefone pode ter até 20 caracteres.
-    @Schema(description = "Telefone do usuário", example = "(62) 99999-9999") // Documenta o telefone no Swagger.
-    private String phone; // Armazena o telefone do usuário.
+    @Size(max = 20, message = "O telefone deve ter no máximo 20 caracteres")
+    @Column(length = 20)
+    @Schema(description = "Telefone do usuário", example = "(62) 99999-9999")
+    private String phone; // Telefone do usuário.
 
-    @Column(columnDefinition = "TEXT") // Define a coluna como texto, permitindo uma descrição maior.
-    @Schema(description = "Biografia do usuário", example = "Desenvolvedor de software") // Documenta a biografia no Swagger.
-    private String bio; // Armazena a biografia do usuário.
+    @Size(max = 2000, message = "A biografia deve ter no máximo 2000 caracteres")
+    @Column(columnDefinition = "TEXT")
+    @Schema(description = "Biografia do usuário", example = "Desenvolvedor de software")
+    private String bio; // Biografia do usuário.
 
-    @Column(name = "avatar_url", length = 500) // Define o nome da coluna e o limite de caracteres da URL.
+    @Size(max = 500, message = "A URL do avatar deve ter no máximo 500 caracteres")
+    @Column(name = "avatar_url", length = 500)
     @Schema(
-            description = "URL da imagem de perfil", // Explica o campo no Swagger.
-            example = "https://site.com/avatar.jpg" // Mostra um exemplo de URL.
+            description = "URL da imagem de perfil",
+            example = "https://site.com/avatar.jpg"
     )
-    private String avatarUrl; // Armazena o endereço da imagem de perfil.
+    private String avatarUrl; // Endereço da imagem de perfil.
 
-    @Column(name = "is_active") // Define o nome da coluna que indica se o usuário está ativo.
-    @Schema(description = "Indica se o usuário está ativo", example = "true") // Documenta o status do usuário no Swagger.
-    private Boolean active; // Armazena true para ativo ou false para inativo.
+    @Column(name = "is_active") // Define a coluna que indica se o usuário está ativo.
+    @Schema(description = "Indica se o usuário está ativo", example = "true")
+    private Boolean active; // Indica se a conta está ativa.
 
-    @CreationTimestamp // Preenche automaticamente a data e hora de criação do usuário.
-    @Column(name = "created_at") // Define a coluna que armazena a data de criação.
-    @Schema(
-            description = "Data de criação do usuário", // Explica o campo no Swagger.
-            example = "2026-09-12T16:58:03" // Mostra um exemplo de data.
-    )
-    private java.time.LocalDateTime createdAt; // Armazena a data e hora de criação do usuário.
+    @CreationTimestamp // Preenche automaticamente a data de criação.
+    @Column(name = "created_at")
+    @Schema(description = "Data de criação do usuário", example = "2026-09-12T16:58:03")
+    private LocalDateTime createdAt; // Data e hora de criação.
 
-    @UpdateTimestamp // Atualiza automaticamente a data e hora da última alteração.
-    @Column(name = "updated_at") // Define a coluna que armazena a data de atualização.
-    @Schema(
-            description = "Data da última atualização", // Explica o campo no Swagger.
-            example = "2026-09-12T17:10:00" // Mostra um exemplo de data.
-    )
-    private java.time.LocalDateTime updatedAt; // Armazena a data e hora da última atualização.
-
-} // Finaliza a classe User.
+    @UpdateTimestamp // Atualiza automaticamente a data de alteração.
+    @Column(name = "updated_at")
+    @Schema(description = "Data da última atualização", example = "2026-09-12T17:10:00")
+    private LocalDateTime updatedAt; // Data e hora da última alteração.
+}
